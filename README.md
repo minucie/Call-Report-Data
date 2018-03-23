@@ -26,43 +26,42 @@ setwd(path)
 
 ## Part-3 : Download, unzip and load the stuctural files of Chicago File in R environment
 ```
+setwd('..')
+upath <- getwd()
+setwd(path)
+dir.create(file.path(upath, 'rawdata'))
+dir.create(file.path(upath, 'rawdata/ffiec'))
+dir.create(file.path(upath, 'rawdata/ffiec/unzip'))
+
 for(y in 11:17){
   for(q in c('03', '06', '09', '12')){
-    dir.create(file.path(path, 'rawdata'))
-    dir.create(file.path(path, 'rawdata/ffiec'))
-    
     dfname <- paste0('rawdata/ffiec/', 'call', y, q, '-zip', '.zip')
     myurl <- paste0('https://www.chicagofed.org/~/media/others/banking/financial-institution-reports/commercial-bank-data/','call', y, q, '-zip', '.zip')
     if (file.exists(dfname) == FALSE) { # get the zip file
       download.file(myurl, destfile = dfname, mode='wb')
-      
     }
-    dir.create(file.path(path, 'rawdata/ffiec/unzip'))   
     unzip(dfname, exdir = 'rawdata/ffiec/unzip')
   }
 }
-```
 
-```
-fileList <- list.files(path=paste0(path, '/rawdata/ffiec/unzip'), pattern=".xpt")
-setwd(paste0(path, '/rawdata/ffiec/unzip'))
+fileList <- list.files(path=paste0(upath, '/rawdata/ffiec/unzip'), pattern=".xpt")
+setwd(paste0(upath, '/rawdata/ffiec/unzip'))
 df <- lapply(fileList, sasxport.get)
 setwd(path)
 ```
 
 ## Part-4A Need to do manual downloads of FFIEC bulk data zip file and put in manually in rawdata/cdr folder.
+Please download the Call Reports-- balance Sheets, Income Statement and Past Due--Four Periods for years in Tab Deliminated format from the following link: https://cdr.ffiec.gov/public/PWS/DownloadBulkData.aspx . This process has to be done manually.
 ```
-dir.create(file.path(path, 'rawdata'))
-dir.create(file.path(path, 'rawdata/cdr'))
-dir.create(file.path(path, 'rawdata/cdr/unzip'))
-fileList <- list.files(path =  paste0(path, '/rawdata/cdr'), pattern="FFIEC")
-setwd(paste0(path, '/rawdata/cdr/'))
-getwd()
+dir.create(file.path(upath, 'rawdata/cdr'))
+dir.create(file.path(upath, 'rawdata/cdr/unzip'))
+fileList <- list.files(path =  paste0(upath, '/rawdata/cdr'), pattern="FFIEC")
+setwd(paste0(upath, '/rawdata/cdr/'))
 lapply(fileList, function(k) unzip(k, exdir = 'unzip'))
 setwd(path)
 ```
 
-## Part-4B Import data 
+## Part-4B Import data
 ```
 CRLoad <- function(dir){
   if("Readme.txt" %in% list.files(path = dir)) unlink("README.txt")
@@ -75,9 +74,10 @@ CRLoad <- function(dir){
   CR
 }
 
-setwd(paste0(path, '/rawdata/cdr/unzip/'))
+setwd(paste0(upath, '/rawdata/cdr/unzip/'))
 Merged <- CRLoad(getwd())
 colnames(Merged) <- tolower(colnames(Merged))
+setwd(path)
 ```
 
 ## Part-4C Create modified code book
@@ -96,6 +96,7 @@ CodeBook <- CRCodeBook(Merged)
 ```
 
 ## Part-5 : Extra comand to drop or retain variable based on their pattern names.
+Given the names of variable the following codes will either retain them or drop them.
 ```
 dropvar <- function(df, grepID){
   make_match <- paste(grepID, collapse='|')
@@ -112,7 +113,7 @@ retainvar <- function(df, grepID){
   return(df2)
 }
 ```
-
+The `dft` will be a list of data for each year with the common variable names.
 ```
 dft <- lapply(df, function(k) retainvar(k, grepID = colnames(Merged)))
 ```
