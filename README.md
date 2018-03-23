@@ -51,7 +51,7 @@ setwd(path)
 ```
 
 ## Part-4A Need to do manual downloads of FFIEC bulk data zip file and put in manually in rawdata/cdr folder.
-Please download the Call Reports-- balance Sheets, Income Statement and Past Due--Four Periods for years in Tab Deliminated format from the following link: https://cdr.ffiec.gov/public/PWS/DownloadBulkData.aspx . This process has to be done manually.
+Please download the Call Reports-- balance Sheets, Income Statement and Past Due--Four Periods for years in Tab Deliminated format from the following link: https://cdr.ffiec.gov/public/PWS/DownloadBulkData.aspx . This process has to be done manually. Please save them in the `rawdata/cdr` folder.
 ```
 dir.create(file.path(upath, 'rawdata/cdr'))
 dir.create(file.path(upath, 'rawdata/cdr/unzip'))
