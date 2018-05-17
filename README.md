@@ -22,98 +22,66 @@ ipak(c('rstudioapi', 'Hmisc'))
 ```
 path <- dirname(rstudioapi::getActiveDocumentContext()$path)
 setwd(path)
-```
 
-## Part-3 : Download, unzip and load the stuctural files of Chicago File in R environment
-```
 setwd('..')
 upath <- getwd()
 setwd(path)
-dir.create(file.path(upath, 'rawdata'))
-dir.create(file.path(upath, 'rawdata/ffiec'))
-dir.create(file.path(upath, 'rawdata/ffiec/unzip'))
-
-for(y in 11:17){
-  for(q in c('03', '06', '09', '12')){
-    dfname <- paste0('rawdata/ffiec/', 'call', y, q, '-zip', '.zip')
-    myurl <- paste0('https://www.chicagofed.org/~/media/others/banking/financial-institution-reports/commercial-bank-data/','call', y, q, '-zip', '.zip')
-    if (file.exists(dfname) == FALSE) { # get the zip file
-      download.file(myurl, destfile = dfname, mode='wb')
-    }
-    unzip(dfname, exdir = 'rawdata/ffiec/unzip')
-  }
-}
-
-fileList <- list.files(path=paste0(upath, '/rawdata/ffiec/unzip'), pattern=".xpt")
-setwd(paste0(upath, '/rawdata/ffiec/unzip'))
-df <- lapply(fileList, sasxport.get)
-setwd(path)
 ```
 
-## Part-4A Need to do manual downloads of FFIEC bulk data zip file and put in manually in rawdata/cdr folder.
+## Part-3A Need to do manual downloads of FFIEC bulk data zip file and put in manually in rawdata/cdr folder.
 Please download the Call Reports-- balance Sheets, Income Statement and Past Due--Four Periods for years in Tab Deliminated format from the following link: https://cdr.ffiec.gov/public/PWS/DownloadBulkData.aspx . This process has to be done manually. Please save them in the `rawdata/cdr` folder.
+
+The following code unzip the downloaded file. 
 ```
 dir.create(file.path(upath, 'rawdata/cdr'))
 dir.create(file.path(upath, 'rawdata/cdr/unzip'))
 fileList <- list.files(path =  paste0(upath, '/rawdata/cdr'), pattern="FFIEC")
-setwd(paste0(upath, '/rawdata/cdr/'))
-lapply(fileList, function(k) unzip(k, exdir = 'unzip'))
-setwd(path)
+foldername <- gsub('.zip', '', fileList)
+for(i in 1:length(foldername)){
+  dir.create(file.path(upath, paste0('rawdata/cdr/unzip/', foldername[i])))
+}
+
+setwd(paste0(upath, '/rawdata/cdr'))
+for(i in 1:length(fileList)){
+  unzip(fileList[i], exdir = paste0(getwd(),'/unzip/', foldername[i]))
+}
 ```
 
-## Part-4B Import data
+## Part-3B Import data, merge and rbind
+The following code import all the unzipped FFIEC CDR data. For each year, it merges the dataset and creats a list of dataset: DF for main data frame and CB for codebook. The data for each year is row binded with year wise identifier. If new variables are introduced or old variable are dropped, the code will generate NA.
 ```
-CRLoad <- function(dir){
+datapath <- paste0(upath, '/rawdata/cdr/unzip/')
+setwd(datapath)
+DF <- list()
+CB <- list()
+for(i in 1:length(foldername)){
+  dir <- paste0(datapath, foldername[i])
+  setwd(dir)
   if("Readme.txt" %in% list.files(path = dir)) unlink("README.txt")
   FNames <- list.files(path = dir)
   CR <- read.delim(FNames[1], stringsAsFactors = FALSE)
-  for (i in 2:length(FNames)){
-    temp <- read.delim(FNames[i], stringsAsFactors = FALSE)
+  for (j in 2:length(FNames)){
+    temp <- read.delim(FNames[j], stringsAsFactors = FALSE)
     CR <- merge(CR, temp)
+    rm(temp)
   }
-  CR
+    DF[[i]] <- CR[ -1,]
+    CB[[i]] <- CR[1,]
 }
+rm(CR)
 
-setwd(paste0(upath, '/rawdata/cdr/unzip/'))
-Merged <- CRLoad(getwd())
-colnames(Merged) <- tolower(colnames(Merged))
-setwd(path)
-```
-
-## Part-4C Create modified code book
-```
-CRCodeBook <- function(x){
-  symbol <- names(x)
-  # First row has short descriptions #
-  descript <- as.character(x[1, ])
-  CB <- data.frame(symbol, descript, stringsAsFactors = FALSE)
-  CB <- subset(CB, descript != "")
-  CB <- subset(CB, descript != "NA")
-  CB
-}
-
-CodeBook <- CRCodeBook(Merged)
+lapply(DF, dim)
+names(DF) <- paste0('y', 2011:2017)
+ipak('data.table')
+df <- rbindlist(DF, use.names=TRUE, fill=TRUE, idcol="YID")
+setwd(upath)
+write.csv(df, 'main.csv') ## ~1GB file
 ```
 
-## Part-5 : Extra comand to drop or retain variable based on their pattern names.
-Given the names of variable the following codes will either retain them or drop them.
+## Part-3C Create modified code book
 ```
-dropvar <- function(df, grepID){
-  make_match <- paste(grepID, collapse='|')
-  df <- df[ ,-grep(make_match, colnames(df))]
-  return(df)
-}
-```
-
-```
-retainvar <- function(df, grepID){
-  make_match <- paste(grepID,collapse='|')
-  df2 <- df[ ,grep(make_match, colnames(df))]
-  #df <- cbind(df1, df2)
-  return(df2)
-}
-```
-The `dft` will be a list of data for each year with the common variable names.
-```
-dft <- lapply(df, function(k) retainvar(k, grepID = colnames(Merged)))
+names(CB) <- paste0('y', 2011:2017)
+cb <- rbindlist(CB, use.names=TRUE, fill=TRUE, idcol="YID")
+setwd(upath)
+write.csv(cb, 'codebook.csv')
 ```
